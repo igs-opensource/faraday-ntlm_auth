@@ -27,6 +27,10 @@ module Faraday
         ntlm_message = Net::NTLM::Message
         env[:request_headers]['Authorization'] = 'NTLM ' + ntlm_message::Type1.new.encode64
         response = @app.call(env.dup)
+        unless response.env[:response_headers]['www-authenticate']
+          Logger.new(STDOUT, progname: 'faraday.ntlm_auth').warn('No NTLM challenge found in response headers, skipping NTLM authentication')
+          return
+        end
         challenge = response.env[:response_headers]['www-authenticate'][/(?:NTLM|Negotiate) (.*)$/, 1]
         message = ntlm_message::Type2.decode64(challenge)
         ntlm_auth = message.response([:user, :password, :domain].zip(@options[:auth]).to_h)
